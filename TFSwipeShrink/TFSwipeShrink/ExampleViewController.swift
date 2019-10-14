@@ -7,30 +7,42 @@
 //
 
 import UIKit
-import MediaPlayer
+import AVFoundation
+import AVKit
 
 class ExampleViewController: UIViewController {
     
     
     @IBOutlet weak var swipeShrinkView: TFSwipeShrinkView!
-    var moviePlayerController: MPMoviePlayerViewController!
+    var moviePlayerController: AVPlayerViewController!
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        let path = NSBundle.mainBundle().pathForResource("bayw-HD", ofType: "mp4")
-        moviePlayerController = MPMoviePlayerViewController(contentURL: NSURL.fileURLWithPath(path!))
-        moviePlayerController.moviePlayer.controlStyle = MPMovieControlStyle.None
-        moviePlayerController.moviePlayer.scalingMode = MPMovieScalingMode.AspectFit
+        let videoURL = Bundle.main.url(forResource: "bayw-HD", withExtension: "mp4")
+        let player = AVPlayer(url: videoURL!)
+        moviePlayerController = AVPlayerViewController()
+        moviePlayerController.player = player
+        moviePlayerController.showsPlaybackControls = true
+//        self.present(playerViewController, animated: true) {
+//            playerViewController.player!.play()
+//        }
+//
+//        AVPlayerViewController()
+//        moviePlayerController = AVPlayerViewController(contentURL: NSURL.fileURL(withPath: path!))
+//        moviePlayerController.moviePlayer.controlStyle = MPMovieControlStyle.embedded
+//        moviePlayerController.moviePlayer.scalingMode = MPMovieScalingMode.aspectFit
     }
     
-    override func viewDidAppear(animated: Bool) {
+    override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
 
-        swipeShrinkView.configureSizeAndPosition(self.view.frame)
-        moviePlayerController.view.frame = CGRectMake(0, 0, swipeShrinkView.frame.size.width, swipeShrinkView.frame.size.height)
+        swipeShrinkView.configureSizeAndPosition(parentViewFrame: self.view.frame)
+        moviePlayerController.view.frame = CGRect(x: 0,
+                                                  y: 0,
+                                                  width: swipeShrinkView.frame.size.width,
+                                                  height: swipeShrinkView.frame.size.height)
         swipeShrinkView.addSubview(moviePlayerController.view)
-        moviePlayerController.moviePlayer.pause()
-        
+        moviePlayerController.player?.pause()
     }
 
     override func didReceiveMemoryWarning() {
@@ -41,11 +53,11 @@ class ExampleViewController: UIViewController {
 
     @IBAction func playMovie(sender: AnyObject) {
         
-        self.swipeShrinkView.hidden = false
-        UIView.animateWithDuration(0.4, animations: {
+        self.swipeShrinkView.isHidden = false
+        UIView.animate(withDuration: 0.4, animations: {
             self.swipeShrinkView.alpha = 1.0
         }, completion: {(done: Bool) in
-            self.moviePlayerController.moviePlayer.play()
+            self.moviePlayerController.player?.play()
         })
         
     }
