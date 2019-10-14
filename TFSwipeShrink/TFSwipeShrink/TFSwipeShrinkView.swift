@@ -17,9 +17,11 @@ class TFSwipeShrinkView: UIView, UIGestureRecognizerDelegate {
     var firstX: CGFloat = 0, firstY: CGFloat = 0
     var aspectRatio: CGFloat = 0.5625
     
-    var rangeTotal: CGFloat!
-    var widthRange: CGFloat!
-    var centerXRange: CGFloat!
+    var finalTranslateX: CGFloat!
+    var finalTranslateY: CGFloat!
+    var finalScale: CGFloat = 0.5
+    var panGesture: UIPanGestureRecognizer!
+    var tapGesture: UITapGestureRecognizer!
     
     // Should be called when making view programmatically
     override init(frame: CGRect) {
@@ -35,12 +37,12 @@ class TFSwipeShrinkView: UIView, UIGestureRecognizerDelegate {
     
     func initGestures() {
         
-        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(TFSwipeShrinkView.panning(_:)))
+        panGesture = UIPanGestureRecognizer(target: self, action: #selector(panning(panGesture:)))
         panGesture.minimumNumberOfTouches = 1
         panGesture.maximumNumberOfTouches = 1
         self.addGestureRecognizer(panGesture)
         
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(TFSwipeShrinkView.tapped(_:)))
+        tapGesture = UITapGestureRecognizer(target: self, action: #selector(tapped(tapGesture:)))
         tapGesture.numberOfTapsRequired = 1
         self.addGestureRecognizer(tapGesture)
         tapGesture.delegate = self
@@ -51,97 +53,82 @@ class TFSwipeShrinkView: UIView, UIGestureRecognizerDelegate {
     func configureSizeAndPosition(parentViewFrame: CGRect) {
         
         self.initialCenter = self.center
-        self.finalCenter = CGPointMake(parentViewFrame.size.width - parentViewFrame.size.width/4, parentViewFrame.size.height - (self.frame.size.height/4) - 2)
+        self.finalCenter = CGPoint(x: parentViewFrame.size.width - parentViewFrame.size.width/4, y: parentViewFrame.size.height - (self.frame.size.height/4) - 2)
         
         initialSize = self.frame.size
-        finalSize = CGSizeMake(parentViewFrame.size.width/2 - 10, (parentViewFrame.size.width/2 - 10) * aspectRatio)
+        finalSize = CGSize(width: parentViewFrame.size.width/2 - 10, height: (parentViewFrame.size.width/2 - 10) * aspectRatio)
         
         // Set common range totals once
-        rangeTotal = finalCenter!.y - initialCenter!.y
-        widthRange = initialSize!.width - finalSize!.width
-        centerXRange = finalCenter!.x - initialCenter!.x
+        finalTranslateX = self.finalCenter!.x - panGesture.view!.frame.size.width / 2
+        finalTranslateY = self.finalCenter!.y - panGesture.view!.frame.size.height
     }
     
-    func panning(panGesture: UIPanGestureRecognizer) {
-        let translatedPoint = panGesture.translationInView(self.superview!)
-        var gestureState = panGesture.state
-        
-        let yChange = panGesture.view!.center.y + translatedPoint.y
-        if yChange < initialCenter?.y {
-            gestureState = UIGestureRecognizerState.Ended
-            
-        } else if yChange >= finalCenter?.y {
-            gestureState = UIGestureRecognizerState.Ended
-            
+    
+    func progressFromY(_ y: CGFloat) -> CGFloat {
+        var progress = y / finalTranslateY
+        if isMinimized {
+            progress *= -1
         }
-
-        if gestureState == UIGestureRecognizerState.Began || gestureState == UIGestureRecognizerState.Changed  {
-
-            // modify size as view is panned down
-            let progress = ((panGesture.view!.center.y - initialCenter!.y) / rangeTotal)
-            
-            let invertedProgress = 1 - progress
-            let newWidth = finalSize!.width + (widthRange * invertedProgress)
-            
-            panGesture.view?.frame.size = CGSizeMake(newWidth, newWidth * aspectRatio)
-            
-            // ensure center x value moves along with size change
-            let finalX = initialCenter!.x + (centerXRange * progress)
-            
-            panGesture.view?.center = CGPointMake(finalX, panGesture.view!.center.y + translatedPoint.y)
-            panGesture.setTranslation(CGPointMake(0, 0), inView: self.superview)
-
-        } else if gestureState == UIGestureRecognizerState.Ended {
-
-            let topDistance = yChange - initialCenter!.y
-            let bottomDistance = finalCenter!.y - yChange
-            
-            var chosenCenter: CGPoint = CGPointZero
-            var chosenSize: CGSize = CGSizeZero
-            self.userInteractionEnabled = false
-            
-            if topDistance > bottomDistance {
-                // animate to bottom
-                chosenCenter = finalCenter!
-                chosenSize = finalSize!
-                
-            } else {
-                // animate to top
-                chosenCenter = initialCenter!
-                chosenSize = initialSize!
-            }
-            
-            if panGesture.view?.center != chosenCenter {
-                UIView.animateWithDuration(0.4, animations: {
-                    panGesture.view?.frame.size = chosenSize
-                    panGesture.view?.center = chosenCenter
-                    
-                }, completion: {(done: Bool) in
-                    self.userInteractionEnabled = true
-                })
-            } else {
-                self.userInteractionEnabled = true
-            }
+        if progress > 1 {
+            progress = 1
+        }else if progress < 0 {
+            progress = 0
         }
-        
+        if isMinimized {
+            progress = 1 - progress
+        }
+        return progress
     }
     
-    func tapped(tapGesture: UITapGestureRecognizer) {
+    var isMinimized = false
+    @objc func panning(panGesture: UIPanGestureRecognizer) {
         
-        if tapGesture.view?.center == self.finalCenter {
-            self.userInteractionEnabled = false
-            UIView.animateWithDuration(0.4, animations: {
-                tapGesture.view?.frame.size = self.initialSize!
-                tapGesture.view?.center = self.initialCenter!
-                
-                }, completion: {(done: Bool) in
-                    self.userInteractionEnabled = true
+        let gestureState = panGesture.state
+
+        if gestureState == UIGestureRecognizer.State.began || gestureState == UIGestureRecognizer.State.changed  {
+            let progress = self.progressFromY(panGesture.translation(in: self.superview!).y)
+
+            panGesture.view?.transform = CGAffineTransform(translationX: finalTranslateX * progress, y:  finalTranslateY * progress)
+                .scaledBy(x: 1 - (0.5 * progress), y: 1 - (0.5 * progress))
+            
+        } else if gestureState == UIGestureRecognizer.State.ended {
+            let progress = self.progressFromY(panGesture.velocity(in: self.superview!).y)
+
+            self.isUserInteractionEnabled = false
+            let isToTop = progress <= 0.5
+            
+            UIView.animate(withDuration: 0.4, animations: {
+                panGesture.view?.transform = isToTop
+                    ? CGAffineTransform.identity
+                    : CGAffineTransform(translationX: self.finalTranslateX,
+                                        y: self.finalTranslateY)
+                        .scaledBy(x: self.finalScale, y: self.finalScale)
+            }, completion: {(done: Bool) in
+                self.isUserInteractionEnabled = true
+                self.isMinimized = !isToTop
             })
         }
         
     }
     
-    func gestureRecognizer(gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWithGestureRecognizer otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+    @objc func tapped(tapGesture: UITapGestureRecognizer) {
+        if self.isMinimized {
+            self.isUserInteractionEnabled = false
+            UIView.animate(withDuration: 0.4, animations: {
+                tapGesture.view?.transform = CGAffineTransform.identity
+            }, completion: {(done: Bool) in
+                self.isUserInteractionEnabled = true
+                self.isMinimized = false
+            })
+        }
+    }
+    
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        if gestureRecognizer == tapGesture && otherGestureRecognizer == panGesture {
+            return false
+        }else if gestureRecognizer == panGesture && otherGestureRecognizer == tapGesture {
+            return false
+        }
         return true
     }
 
