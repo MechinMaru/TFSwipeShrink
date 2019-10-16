@@ -8,41 +8,26 @@
 
 import UIKit
 import AVFoundation
-import AVKit
 
 class ExampleViewController: UIViewController {
     
     
     @IBOutlet weak var swipeShrinkView: TFSwipeShrinkView!
-    var moviePlayerController: AVPlayerViewController!
+//    var moviePlayerController: AVPlayerViewController!
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        let videoURL = Bundle.main.url(forResource: "bayw-HD", withExtension: "mp4")
-        let player = AVPlayer(url: videoURL!)
-        moviePlayerController = AVPlayerViewController()
-        moviePlayerController.player = player
-        moviePlayerController.showsPlaybackControls = true
-//        self.present(playerViewController, animated: true) {
-//            playerViewController.player!.play()
-//        }
-//
-//        AVPlayerViewController()
-//        moviePlayerController = AVPlayerViewController(contentURL: NSURL.fileURL(withPath: path!))
-//        moviePlayerController.moviePlayer.controlStyle = MPMovieControlStyle.embedded
-//        moviePlayerController.moviePlayer.scalingMode = MPMovieScalingMode.aspectFit
+//        let videoURL = Bundle.main.url(forResource: "bayw-HD", withExtension: "mp4")
+//        let player = AVPlayer(url: videoURL!)
+//        moviePlayerController = AVPlayerViewController()
+//        moviePlayerController.player = player
+//        moviePlayerController.showsPlaybackControls = true
+        
     }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
 
-        swipeShrinkView.configureSizeAndPosition(parentViewFrame: self.view.frame)
-        moviePlayerController.view.frame = CGRect(x: 0,
-                                                  y: 0,
-                                                  width: swipeShrinkView.frame.size.width,
-                                                  height: swipeShrinkView.frame.size.height)
-        swipeShrinkView.addSubview(moviePlayerController.view)
-        moviePlayerController.player?.pause()
     }
 
     override func didReceiveMemoryWarning() {
@@ -52,14 +37,15 @@ class ExampleViewController: UIViewController {
     
 
     @IBAction func playMovie(sender: AnyObject) {
+        let videoURL = Bundle.main.url(forResource: "bayw-HD", withExtension: "mp4")
+        let player = AVPlayer(url: videoURL!)
+        let floatingVC = FloatingViewController(avPlayer: player)
         
-        self.swipeShrinkView.isHidden = false
-        UIView.animate(withDuration: 0.4, animations: {
-            self.swipeShrinkView.alpha = 1.0
-        }, completion: {(done: Bool) in
-            self.moviePlayerController.player?.play()
-        })
+//        self.present(floatingVC, animated: true)
         
+        if let delegate = UIApplication.shared.delegate {
+            floatingVC.presentOnAppliactionDelegate(delegate)
+        }
     }
 
 }
